@@ -9,6 +9,7 @@ from ray.rllib.env.vector_env import VectorEnv
 from ray.rllib.utils.policy_client import PolicyClient
 import argparse
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--num-envs", type=int, required=True)
 parser.add_argument("--num-episodes", type=int, required=True)
@@ -26,13 +27,13 @@ class CPEnviroment(object):
     def render(self):
         return self.env.render()
 
-def get_action(episode, obs):
+def get_action(client, episode, obs):
     return client.get_action(episode, obs)
 
 def step(env,action):
     return env.step(action)
 
-def log_return_and_end(episode, rew, obs, done):
+def log_return_and_end(client, episode, rew, obs, done):
     client.log_returns(episode, rew)
     if done:
         client.end_episode(episode, obs)
@@ -49,19 +50,20 @@ def start_ep(client, num_envs=4):
 
 @ray.remote
 def run_episode(env, client):
+    global IS_TEST
     start=time.time()
     obs = reset(env)
     ep, done = start_ep(client)
     tot_rew = 0
     time.sleep(5)
     while not done:
-        action = get_action(ep, obs)
+        action = get_action(client, ep, obs)
         transition = step(env, action)
         rew = transition[1]
         tot_rew += rew
         done = transition[2]
         obs = transition[0]
-        log_return_and_end(ep, rew, obs, done)
+        log_return_and_end(client, ep, rew, obs, done)
     print("Episode reward", tot_rew)
 
 if __name__ == '__main__':
